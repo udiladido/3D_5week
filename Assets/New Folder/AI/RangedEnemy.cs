@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -9,6 +7,7 @@ public enum AIState
     Idle,
     Wandering,
     Attacking,
+    Fleeing
 }
 
 
@@ -32,11 +31,13 @@ public class RangedEnemy : MonoBehaviour
     [Header("AI")]
     private AIState aiState;
     public float detectDistance;
+    public float safeDistance;
 
     [Header("Combat")]
     public int damage;
     public float attackRate;
     public float attackDistance;
+
     private float playerDistance;
 
 
@@ -59,6 +60,70 @@ public class RangedEnemy : MonoBehaviour
     void Update()
     {
 
+
+        playerDistance = Vector3.Distance(transform.position, CharacterManager.Instance.Player.transform.position);
+
+        animator.SetBool("Moving", aiState != AIState.Idle);
+
+        switch (aiState)
+        {
+            case AIState.Idle:
+                PassiveUpdate();
+                break;
+            case AIState.Wandering:
+                PassiveUpdate();
+                break;
+            case AIState.Attacking:
+                AttackingUpdate();
+                break;
+            case AIState.Fleeing:
+                FleeingUpdate();
+                break;
+        }
+    }
+
+
+
+    void FleeingUpdate()
+    {
+        // 매직 넘버 없애기 - 플레이어와의 거리 범위 : 가까워지면 도망가야
+        if (agent.remainingDistance < 0.5f)
+        {
+            agent.SetDestination(GetFleeLocation());
+        }
+        else
+        {
+
+            //충분히 멀어졌다면 공격
+            SetState(AIState.Attacking);
+        }
+
+    }
+
+    Vector3 GetFleeLocation()
+    {
+        NavMeshHit hit;
+
+        NavMesh.SamplePosition(transform.position + (Random.onUnitSphere * safeDistance), out hit, maxWanderDistance, NavMesh.AllAreas);
+
+        int i = 0;
+        while (GetDestinationAngle(hit.position) > 90 || playerDistance < safeDistance)
+        {
+
+            NavMesh.SamplePosition(transform.position + (Random.onUnitSphere * safeDistance), out hit, maxWanderDistance, NavMesh.AllAreas);
+            i++;
+            if (i == 30)
+                break;
+        }
+
+        return hit.position;
+    }
+
+
+
+    float GetDestinationAngle(Vector3 targetPos)
+    {
+        return Vector3.Angle(transform.position - CharacterManager.Instance.Player.transform.position, transform.position + targetPos);
     }
 
 
@@ -89,22 +154,20 @@ public class RangedEnemy : MonoBehaviour
 
     void AttackingUpdate()
     {
-        if (playerDistance < attackDistance || !IsPlayerInFieldOfView())
+        //플레이어가 원거리 공격 범위 내에 있을 때 공격 + 너무 가까워 지면 도망가야 함.
+        if (playerDistance < attackDistance  && IsPlayerInFieldOfView())
         {
             agent.isStopped = true;
 
             // 공격 로직 추가
-            // 오브젝트 풀 이용해서 탄환 발사
-            // 고박사 https://youtu.be/9X13qf62UQA?si=KEJw_emOGUl8CPLP 참고? 
-
+            
 
         }
-        else
+
+        else 
         {
 
-            //플레이어로부터 멀어져야 함. 어떻게?
-
-            agent.isStopped = true;
+            SetState(AIState.Fleeing);
 
 
         }
