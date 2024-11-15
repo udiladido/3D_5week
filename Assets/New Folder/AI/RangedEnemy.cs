@@ -1,3 +1,4 @@
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -37,12 +38,14 @@ public class RangedEnemy : MonoBehaviour
     public int damage;
     public float attackRate;
     public float attackDistance;
-
     private float playerDistance;
 
-
     private NavMeshAgent agent;
-    private Animator animator;
+
+
+
+    public GameObject testPrefab;
+    [SerializeField] private Transform projectileSpawnPosition;
 
     // Start is called before the first frame update
     void Start()
@@ -62,8 +65,6 @@ public class RangedEnemy : MonoBehaviour
 
 
         playerDistance = Vector3.Distance(transform.position, CharacterManager.Instance.Player.transform.position);
-
-        animator.SetBool("Moving", aiState != AIState.Idle);
 
         switch (aiState)
         {
@@ -86,8 +87,8 @@ public class RangedEnemy : MonoBehaviour
 
     void FleeingUpdate()
     {
-        // 매직 넘버 없애기 - 플레이어와의 거리 범위 : 가까워지면 도망가야
-        if (agent.remainingDistance < 0.5f)
+        //플레이어와의 거리 범위 : 공격범위 보다 가까워지면 도망가야
+        if (playerDistance < attackDistance)
         {
             agent.SetDestination(GetFleeLocation());
         }
@@ -145,28 +146,30 @@ public class RangedEnemy : MonoBehaviour
                 agent.speed = runSpeed;
                 agent.isStopped = true;
                 break;
-
+            case AIState.Fleeing:
+                agent.speed = runSpeed;
+                agent.isStopped = false;
+                break;
         }
 
-        animator.speed = agent.speed / walkSpeed;
+       
     }
 
 
     void AttackingUpdate()
     {
-        //플레이어가 원거리 공격 범위 내에 있을 때 공격 + 너무 가까워 지면 도망가야 함.
+     
         if (playerDistance < attackDistance  && IsPlayerInFieldOfView())
         {
             agent.isStopped = true;
-
-            // 공격 로직 추가
-            
+            // 공격 로직 추가 - 오브젝트 풀에서 불러오는 걸로 나중에 수정
+            Instantiate(testPrefab, projectileSpawnPosition.position, Quaternion.identity);
 
         }
 
         else 
         {
-
+            // 도망
             SetState(AIState.Fleeing);
 
 
